@@ -1,0 +1,19 @@
+type = fancymenu_config
+
+config {
+  show_modpack_mode_button = false
+  show_title_screen_copyright = true
+  show_title_screen_branding_text = false
+  show_game_logo = false
+  show_splash_text = false
+  show_realms_notification = false
+  show_multiplayer_related_warnings = true
+  play_menu_music = true
+  use_classic_menu_background = false
+  preload_animated_images = true
+  async_animated_image_loading = true
+  animated_image_frame_delay_offset = 0
+  max_animated_image_threads = 3
+  print_animated_image_exceptions = false
+  render_debug_element_bounds = false
+}
