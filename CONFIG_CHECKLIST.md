@@ -107,30 +107,59 @@ decay_value = 72000   # 1 hour before chests decay
 
 ## 📦 Export Instructions
 
-### Git Branch Strategy
-Your modpack uses separate branches for each platform:
-- `main` - Development branch (includes everything)
-- `modrinth` - Complete pack with Yes Steve Model
-- `curseforge` - Pack without Yes Steve Model (CF-compatible)
+### Unified Modpack Strategy
+Your modpack now uses **platform manifests** for all dependencies, meaning:
+- ✅ **One codebase** for both CurseForge and Modrinth
+- ✅ **One server pack** that works for both platforms  
+- ✅ Proper licensing compliance (no ARR content redistributed)
+- ✅ Smaller download sizes (launchers fetch dependencies)
 
-### 1. For CurseForge
-1. Ensure you're on the `curseforge` branch: `git checkout curseforge`
-2. Export the profile from your launcher
-3. Upload to CurseForge
+### Dependencies (Added via Platform Manifests)
+When uploading, add these as **dependencies/related projects**:
 
-### 2. For Modrinth
-1. Ensure you're on the `modrinth` branch: `git checkout modrinth`
-2. Export as `.mrpack` (Modrinth format)
-3. Upload to Modrinth
+**Shaders (Optional - credit in description if enabled by default):**
+- Complementary Reimagined
+- Complementary Unbound
+- Miniature Shader
+
+**Resource Packs:**
+- Fresh Animations
+- Beautiful Enchanted Books
+- Beautiful Potions
+- Darkmode Colourful Containers
+- Quark Programmer Art
+
+### Export Workflow
+1. Export modpack from your launcher (CurseForge App / Prism / etc.)
+2. Upload to both CurseForge and Modrinth
+3. Add shaders/resource packs as optional dependencies on each platform
+4. For server pack: Same export, just remove client-only mods
+
+### Client-Only Mods to Remove for Server Pack:
+```
+- Oculus (shaders)
+- Embeddium (rendering)  
+- FancyMenu, Drippy Loading Screen (menus)
+- Better Advancements (UI)
+- Controlling (UI)
+- Configured (UI)
+- Mouse Tweaks (client input)
+- Skin Layers 3D (cosmetic)
+- Chat Heads (cosmetic)
+```
 
 ### Required Files to Include:
 ```
-mods/                     # All mod JARs (except non-CF mods for CF export)
 config/                   # All configuration files
 defaultconfigs/           # Server-side defaults
-resourcepacks/            # Included resource packs
-shaderpacks/             # Included shader packs
-fancymenu_data/          # If using custom menus
+fancymenu_data/          # Custom menu layouts
+```
+
+### Files Handled by Manifests (NOT in repo):
+```
+mods/                     # Downloaded via manifest
+resourcepacks/            # Added as dependencies
+shaderpacks/             # Added as dependencies
 ```
 
 ### Files to EXCLUDE:
