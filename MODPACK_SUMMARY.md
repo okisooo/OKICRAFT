@@ -49,6 +49,7 @@ OKICRAFT is a comprehensive Minecraft modpack designed to enhance every aspect o
 ### 🗣️ Social Features
 - **Simple Voice Chat** - In-game proximity voice chat
 - **Chat Heads** - Player heads shown in chat messages
+- **Yes Steve Model** - Custom player model support and animations
 
 ### 🛠️ Tools & Utilities
 - **Tinkers' Construct** - Customizable tool crafting

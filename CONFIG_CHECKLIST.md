@@ -1,6 +1,6 @@
 # OKICRAFT Modpack - Configuration Checklist & Recommendations
 
-This document outlines configuration items that need attention before publishing to CurseForge.
+This document outlines configuration items that need attention before publishing to Modrinth.
 
 ---
 
@@ -9,7 +9,7 @@ This document outlines configuration items that need attention before publishing
 ### Better Compatibility Checker (`config/bcc-common.toml`)
 - [x] Modpack name set to "OKICRAFT"
 - [x] Version set to "1.0.0"
-- [ ] **ACTION NEEDED**: Update `modpackProjectID` after creating CurseForge project
+- [x] Project ID not needed for Modrinth (BCC is CurseForge-specific)
 
 ### Default Configs (`defaultconfigs/`)
 - [x] Voice Chat server defaults created
@@ -20,13 +20,11 @@ This document outlines configuration items that need attention before publishing
 
 ## ⚠️ Items Requiring Your Attention
 
-### 1. CurseForge Project Setup
-After creating your CurseForge project:
-1. Get your Project ID from the CurseForge project page
-2. Update `config/bcc-common.toml`:
-   ```toml
-   modpackProjectID = YOUR_PROJECT_ID_HERE
-   ```
+### 1. Modrinth Project Setup
+1. Create your project at https://modrinth.com/dashboard/projects
+2. Set project type to "Modpack"
+3. Add appropriate categories and tags
+4. Upload your pack's icon/logo
 
 ### 2. Custom Loading Screen (Optional)
 The `drippyloadingscreen` mod is installed but has minimal config.
@@ -107,19 +105,20 @@ decay_value = 72000   # 1 hour before chests decay
 
 ## 📦 Export Instructions
 
-### Unified Modpack Strategy
-Your modpack now uses **platform manifests** for all dependencies, meaning:
-- ✅ **One codebase** for both CurseForge and Modrinth
-- ✅ **One server pack** that works for both platforms  
-- ✅ Proper licensing compliance (no ARR content redistributed)
+### Modrinth-Only Strategy
+Your modpack is distributed exclusively on **Modrinth**, which means:
+- ✅ **Yes Steve Model included** (Modrinth-exclusive mod)
+- ✅ All mods available via Modrinth manifest
+- ✅ Proper licensing compliance (no direct redistribution)
 - ✅ Smaller download sizes (launchers fetch dependencies)
+- ✅ Works with Modrinth App, Prism Launcher, ATLauncher, MultiMC
 
-### Dependencies (Added via Platform Manifests)
-When uploading, add these as **dependencies/related projects**:
+### Dependencies (Added via Modrinth Project Settings)
+When uploading, add these as **optional dependencies**:
 
-**Shaders (Optional - credit in description if enabled by default):**
+**Shaders:**
 - Complementary Reimagined
-- Complementary Unbound
+- Complementary Unbound  
 - Miniature Shader
 
 **Resource Packs:**
@@ -130,9 +129,9 @@ When uploading, add these as **dependencies/related projects**:
 - Quark Programmer Art
 
 ### Export Workflow
-1. Export modpack from your launcher (CurseForge App / Prism / etc.)
-2. Upload to both CurseForge and Modrinth
-3. Add shaders/resource packs as optional dependencies on each platform
+1. Export as `.mrpack` from Prism Launcher / ATLauncher / etc.
+2. Upload to Modrinth
+3. Add shaders/resource packs as optional dependencies
 4. For server pack: Same export, just remove client-only mods
 
 ### Client-Only Mods to Remove for Server Pack:
@@ -176,15 +175,15 @@ schematics/              # Personal schematics
 
 ---
 
-## 🏷️ Suggested CurseForge Tags
+## 🏷️ Suggested Modrinth Tags
 
-- Exploration
-- Tech
+- Adventure
+- Technology
 - Magic  
 - Multiplayer
-- Quests (if you add any)
 - Building
-- Quality of Life
+- Optimization
+- Utility
 
 ---
 
@@ -192,10 +191,10 @@ schematics/              # Personal schematics
 
 ### v1.0.0 - Initial Release
 - Initial public release
-- 117 mods included
-- 4 resource packs
-- 3 shader packs
+- 117 mods included (including Yes Steve Model!)
+- 4 resource packs (via dependencies)
+- 3 shader options (via dependencies)
 
 ---
 
-*Generated for OKICRAFT Modpack - December 2024*
+*Generated for OKICRAFT Modpack - Modrinth Distribution - December 2024*
