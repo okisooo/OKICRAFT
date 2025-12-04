@@ -29,7 +29,24 @@ backups/
 Thumbs.db
 .vscode/
 
-# User Specific Options (Optional: Uncomment if you want to force these)
-# options.txt
-# optionsof.txt
-# servers.dat
+# User-Specific Client Options (personal keybinds, settings, etc.)
+options.txt
+optionsof.txt
+servers.dat
+patchouli_data.json
+minecraftinstance.json
+
+# Xaero Maps Config (personal waypoints, settings)
+config/xaerominimap.txt
+config/xaerominimap-common.txt
+config/xaerominimap_entities.json
+config/xaeropatreon.txt
+config/xaeroworldmap.txt
+config/xaeroworldmap-common.txt
+
+# FancyMenu user variables (personal, layout is kept)
+config/fancymenu/user_variables.db
+config/fancymenu/options.txt
+
+# DripyLoadingScreen personal options
+config/drippyloadingscreen/options.txt
