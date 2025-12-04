@@ -1,0 +1,43 @@
+
+[inventoryButton]
+	#Inventory warp button - set to NONE, NEAREST, or ANY
+	inventoryButton = ""
+	warpButtonX = 58
+	warpButtonY = 60
+	creativeWarpButtonX = 88
+	creativeWarpButtonY = 33
+
+[cooldowns]
+	globalWaystoneCooldownMultiplier = 1.0
+	warpStoneCooldown = 30
+	warpStoneUseTime = 32
+	warpPlateUseTime = 20
+	scrollUseTime = 32
+	inventoryButtonCooldown = 300
+
+[worldGen]
+	#Style: DEFAULT, MOSSY, SANDY, BLACKSTONE, DEEPSLATE, END_STONE, BIOME
+	worldGenStyle = "BIOME"
+	#Chunk distance between waystones (0 to disable)
+	frequency = 25
+	dimensionAllowList = ["minecraft:overworld", "minecraft:the_nether", "minecraft:the_end"]
+	dimensionDenyList = []
+	#Name mode: PRESET_FIRST, RANDOM_ONLY, PRESET_ONLY, MIXED
+	nameGenerationMode = "PRESET_FIRST"
+	customWaystoneNames = []
+	spawnInVillages = true
+	forceSpawnInVillages = false
+
+[restrictions]
+	restrictToCreative = false
+	restrictRenameToOwner = false
+	generatedWaystonesUnbreakable = false
+	transportLeashed = true
+	transportLeashedDimensional = true
+	leashedDenyList = ["minecraft:wither"]
+	#Dimensional warp: ALLOW, GLOBAL_ONLY, DENY
+	dimensionalWarp = "ALLOW"
+	dimensionalWarpAllowList = []
+	dimensionalWarpDenyList = []
+	allowWaystoneToWaystoneTeleport = true
+	globalWaystoneSetupRequiresCreativeMode = true

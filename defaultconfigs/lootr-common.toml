@@ -1,0 +1,71 @@
+#whether or not the entire forge:chests/wooden tag should be added to the conversion list for structures (if they are backed by RandomizableContainerBlockEntity)
+convert_wooden_chests = true
+
+#list of loot tables which will decay (default blank, meaning no chests decay)
+decay_loot_tables = []
+
+#a list of additional chests that should be converted
+additional_chests = []
+
+#list of mod IDs whose loot tables will decay
+decay_modids = []
+
+#list of modids whose loot tables shouldn't be converted
+loot_modid_blacklist = []
+
+#allows fake players to destroy Lootr chests without having to sneak
+enable_fake_player_break = false
+
+#a list of additional trapped chests that should be converted
+additional_trapped_chests = []
+
+#lootr chests cannot be destroyed by any explosion
+blast_immune = false
+
+#list of dimensions that loot chest should be replaced in (default: blank = all)
+dimension_whitelist = []
+
+#disables styling of breaking, decaying and refreshing messages
+disable_message_styles = false
+
+#list of dimensions where loot chests should automatically decay
+decay_dimensions = []
+
+#whether or not the entire forge:chests/trapped tag should be added
+convert_trapped_chests = true
+
+#list of structures in which loot chests should automatically decay
+decay_structures = []
+
+#report unresolved tables to players
+report_unresolved_tables = false
+
+#list of dimensions by modid that loot chests should not be replaced in
+modid_dimension_blacklist = []
+
+#enable aggressive mode for performance (may prevent some conversions)
+aggressive_mode = false
+
+#list of loot tables which shouldn't be converted
+loot_table_blacklist = []
+
+#list of dimensions where loot chests should automatically refresh
+refresh_dimensions = []
+
+#list of mod IDs whose loot tables will refresh
+refresh_modids = []
+
+#randomise loot seed per player (true) or same for all (false)
+randomise_seed = true
+
+#allows players to open Lootr containers within spawn protection areas
+bypass_spawn_protection = true
+
+#when true, custom inventories act like trapped chests when opened
+trapped_custom = false
+
+#decay time in ticks (default 5 minutes = 6000)
+decay_value = 6000
+
+#list of loot tables which will refresh
+refresh_loot_tables = []

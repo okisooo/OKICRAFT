@@ -1,0 +1,35 @@
+# Minecraft Ignored Files
+mods/
+saves/
+logs/
+crash-reports/
+screenshots/
+schematics/
+versions/
+assets/
+libraries/
+runtime/
+webcache2/
+launcher_profiles.json
+launcher_log.txt
+usercache.json
+usernamecache.json
+.mixin.out/
+
+# Mod Specific
+journeymap/
+xaero/
+backups/
+*.old
+.rei/
+.jei/
+
+# System
+.DS_Store
+Thumbs.db
+.vscode/
+
+# User Specific Options (Optional: Uncomment if you want to force these)
+# options.txt
+# optionsof.txt
+# servers.dat
