@@ -107,16 +107,21 @@ decay_value = 72000   # 1 hour before chests decay
 
 ## 📦 Export Instructions
 
-### 1. For CurseForge (Standard)
-1. **Remove** `Yes Steve Model` from your mods folder.
-2. Export the profile (include config, defaultconfigs, resourcepacks, shaderpacks).
-3. Upload to CurseForge.
-4. **Re-add** `Yes Steve Model` to your mods folder.
+### Git Branch Strategy
+Your modpack uses separate branches for each platform:
+- `main` - Development branch (includes everything)
+- `modrinth` - Complete pack with Yes Steve Model
+- `curseforge` - Pack without Yes Steve Model (CF-compatible)
 
-### 2. For Modrinth (Complete)
-1. Ensure `Yes Steve Model` is in your mods folder.
-2. Export as `.mrpack` (Modrinth format).
-3. Upload to Modrinth (it will detect the mod dependency automatically).
+### 1. For CurseForge
+1. Ensure you're on the `curseforge` branch: `git checkout curseforge`
+2. Export the profile from your launcher
+3. Upload to CurseForge
+
+### 2. For Modrinth
+1. Ensure you're on the `modrinth` branch: `git checkout modrinth`
+2. Export as `.mrpack` (Modrinth format)
+3. Upload to Modrinth
 
 ### Required Files to Include:
 ```
