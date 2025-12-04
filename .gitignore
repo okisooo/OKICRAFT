@@ -15,14 +15,19 @@ launcher_log.txt
 usercache.json
 usernamecache.json
 .mixin.out/
+patchouli_books/
 
-# Mod Specific
+# Mod Specific - Personal Data
 journeymap/
 xaero/
 backups/
 *.old
 .rei/
 .jei/
+
+# Resource Packs & Shaders (use manifests/dependencies instead)
+resourcepacks/
+shaderpacks/
 
 # System
 .DS_Store
@@ -50,3 +55,8 @@ config/fancymenu/options.txt
 
 # DripyLoadingScreen personal options
 config/drippyloadingscreen/options.txt
+
+# Yes Steve Model (ARR license - cannot redistribute, Modrinth-only)
+# Users can manually install from: https://modrinth.com/mod/yes-steve-model
+config/yes_steve_model/
+config/yes_steve_model-client.toml
