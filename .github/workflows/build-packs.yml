@@ -1,0 +1,154 @@
+name: Build OKICRAFT Packs
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on version tags like v1.0.0
+  workflow_dispatch:  # Manual trigger
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+jobs:
+  build-server-pack:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Read client-only mods list
+        id: client-mods
+        run: |
+          # Parse client-only-mods.txt into exclude patterns
+          PATTERNS=$(grep -v '^#' scripts/client-only-mods.txt | grep -v '^$' | tr '\n' '|' | sed 's/|$//')
+          echo "EXCLUDE_PATTERNS=$PATTERNS" >> $GITHUB_OUTPUT
+
+      - name: Download mods from Modrinth
+        run: |
+          echo "Note: This workflow builds the SERVER pack from configs only."
+          echo "Mods must be provided separately or fetched from a Modrinth manifest."
+          echo ""
+          echo "For now, this creates a config-only server pack."
+          echo "You'll need to add mods manually or extend this workflow."
+
+      - name: Build server pack structure
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          OUTPUT_DIR="OKICRAFT-Server-${VERSION}"
+          
+          mkdir -p "${OUTPUT_DIR}/config"
+          mkdir -p "${OUTPUT_DIR}/defaultconfigs"
+          mkdir -p "${OUTPUT_DIR}/mods"
+          
+          # Copy configs (exclude client-only configs)
+          rsync -av --exclude='fancymenu*' \
+                    --exclude='drippyloadingscreen*' \
+                    --exclude='xaerominimap*' \
+                    --exclude='xaeroworldmap*' \
+                    --exclude='journeymap*' \
+                    --exclude='oculus*' \
+                    config/ "${OUTPUT_DIR}/config/"
+          
+          # Copy default configs
+          cp -r defaultconfigs/* "${OUTPUT_DIR}/defaultconfigs/"
+          
+          # Create start scripts
+          cat > "${OUTPUT_DIR}/start.sh" << 'EOF'
+          #!/bin/bash
+          java -Xms4G -Xmx8G \
+            -XX:+UseG1GC \
+            -XX:+ParallelRefProcEnabled \
+            -XX:MaxGCPauseMillis=200 \
+            -XX:+UnlockExperimentalVMOptions \
+            -XX:+DisableExplicitGC \
+            -XX:+AlwaysPreTouch \
+            -XX:G1NewSizePercent=30 \
+            -XX:G1MaxNewSizePercent=40 \
+            -XX:G1HeapRegionSize=8M \
+            -XX:G1ReservePercent=20 \
+            -XX:G1HeapWastePercent=5 \
+            -XX:G1MixedGCCountTarget=4 \
+            -XX:InitiatingHeapOccupancyPercent=15 \
+            -XX:G1MixedGCLiveThresholdPercent=90 \
+            -XX:G1RSetUpdatingPauseTimePercent=5 \
+            -XX:SurvivorRatio=32 \
+            -XX:+PerfDisableSharedMem \
+            -XX:MaxTenuringThreshold=1 \
+            -jar forge-*.jar nogui
+          EOF
+          chmod +x "${OUTPUT_DIR}/start.sh"
+          
+          cat > "${OUTPUT_DIR}/start.bat" << 'EOF'
+          @echo off
+          title OKICRAFT Server
+          java -Xms4G -Xmx8G -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1 -jar forge-*.jar nogui
+          pause
+          EOF
+          
+          # Create eula placeholder
+          echo "# Change to eula=true to accept the Minecraft EULA" > "${OUTPUT_DIR}/eula.txt"
+          echo "eula=false" >> "${OUTPUT_DIR}/eula.txt"
+          
+          # Create README
+          cat > "${OUTPUT_DIR}/README.txt" << EOF
+          OKICRAFT Server Pack v${VERSION}
+          ================================
+          
+          Setup:
+          1. Download Forge 1.20.1 installer from https://files.minecraftforge.net/
+          2. Run: java -jar forge-*-installer.jar --installServer
+          3. Download server mods from Modrinth (same as client, minus client-only mods)
+          4. Edit eula.txt and set eula=true
+          5. Run start.sh (Linux) or start.bat (Windows)
+          
+          See SERVER_SETUP.md in the main repo for the full mod list.
+          EOF
+          
+          echo "SERVER_DIR=${OUTPUT_DIR}" >> $GITHUB_ENV
+
+      - name: Create server pack archive
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          zip -r "OKICRAFT-Server-${VERSION}.zip" "${SERVER_DIR}"
+
+      - name: Upload server pack artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OKICRAFT-Server-${{ steps.version.outputs.VERSION }}
+          path: OKICRAFT-Server-${{ steps.version.outputs.VERSION }}.zip
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            OKICRAFT-Server-${{ steps.version.outputs.VERSION }}.zip
+          body: |
+            ## OKICRAFT v${{ steps.version.outputs.VERSION }}
+            
+            ### Downloads
+            - **Client Pack**: Install via Modrinth App or download `.mrpack` from [Modrinth](https://modrinth.com/modpack/okicraft)
+            - **Server Pack**: Download the attached `OKICRAFT-Server-*.zip`
+            
+            ### Server Setup
+            1. Extract the server pack
+            2. Download and run Forge 1.20.1 installer with `--installServer`
+            3. Copy mods from client (excluding client-only mods - see `SERVER_SETUP.md`)
+            4. Set `eula=true` in `eula.txt`
+            5. Run `start.sh` or `start.bat`
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
