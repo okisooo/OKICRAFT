@@ -1,0 +1,42 @@
+# Client-Only Mods List
+# These mods should NOT be included on the server
+# One pattern per line, supports wildcards (*)
+
+# === Rendering & Shaders ===
+embeddium-*
+oculus-*
+ImmediatelyFast-*
+skinlayers3d-*
+
+# === Audio ===
+AmbientSounds_*
+
+# === UI/HUD Mods ===
+appleskin-*
+chat_heads-*
+Controlling-*
+EnchantmentDescriptions-*
+Jade-*
+MouseTweaks-*
+shulkerboxtooltip-*
+
+# === Maps (client-side rendering) ===
+journeymap-*
+Xaeros_Minimap_*
+XaerosWorldMap_*
+NaturesCompass-*
+
+# === Menu/Loading Customization ===
+fancymenu_*
+drippyloadingscreen_*
+konkrete_*
+melody_*
+YungsMenuTweaks-*
+
+# === Client-Only Features ===
+ysm-*
+
+# === Optional Exclusions ===
+# Uncomment if you don't want these on server:
+# spark-*          # Profiler - actually useful on server
+# fast-ip-ping-*   # Client ping display
