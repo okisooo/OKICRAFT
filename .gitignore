@@ -8,6 +8,9 @@ schematics/
 versions/
 /assets/
 libraries/
+
+# Generated server packs
+OKICRAFT-Server*/
 runtime/
 webcache2/
 launcher_profiles.json
