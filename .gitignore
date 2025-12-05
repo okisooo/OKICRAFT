@@ -48,6 +48,10 @@ minecraftinstance.json
 config/xaerominimap.txt
 config/xaerominimap-common.txt
 config/xaerominimap_entities.json
+
+# Yes Steve Model (Copyrighted/Large assets)
+config/yes_steve_model/custom/
+config/yes_steve_model/cache/
 config/xaeropatreon.txt
 config/xaeroworldmap.txt
 config/xaeroworldmap-common.txt
