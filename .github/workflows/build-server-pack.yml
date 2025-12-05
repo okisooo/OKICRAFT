@@ -1,25 +1,50 @@
-name: Build & Release OKICRAFT Server Pack
+name: Manual Server Pack Build
 
 on:
-  release:
-    types: [published]  # Triggers when you publish a release on GitHub
-  workflow_dispatch:    # Manual trigger for testing
+  workflow_dispatch:     # Manual trigger
     inputs:
-      version:
-        description: 'Version (e.g., 1.0.0)'
-        required: true
-      mrpack_url:
-        description: 'Direct download URL to .mrpack file from Modrinth'
-        required: true
+      force_version:
+        description: 'Force build specific version (optional)'
+        required: false
 
 env:
+  MODRINTH_PROJECT_SLUG: "okicraft"
   MINECRAFT_VERSION: "1.20.1"
   FORGE_VERSION: "47.2.0"
   PACK_NAME: "OKICRAFT"
 
 jobs:
-  build-server-pack:
+  fetch-version-info:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_info.outputs.version }}
+      mrpack_url: ${{ steps.get_info.outputs.mrpack_url }}
+    steps:
+      - name: Get Modrinth Info
+        id: get_info
+        run: |
+          # 1. Get latest version from Modrinth API
+          echo "Fetching latest version from Modrinth..."
+          RESPONSE=$(curl -s "https://api.modrinth.com/v2/project/${{ env.MODRINTH_PROJECT_SLUG }}/version")
+          
+          # Parse JSON for latest version number and file URL
+          LATEST_VER=$(echo "$RESPONSE" | jq -r '.[0].version_number')
+          MRPACK_URL=$(echo "$RESPONSE" | jq -r '.[0].files[] | select(.primary==true) | .url')
+          
+          if [ "$LATEST_VER" == "null" ] || [ -z "$LATEST_VER" ]; then
+            echo "::error::Could not fetch version from Modrinth."
+            exit 1
+          fi
+          
+          echo "Latest Modrinth Version: $LATEST_VER"
+          echo "version=$LATEST_VER" >> $GITHUB_OUTPUT
+          echo "mrpack_url=$MRPACK_URL" >> $GITHUB_OUTPUT
+
+  build-server-pack:
+    needs: fetch-version-info
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Needed to create releases
     
     steps:
       - name: Checkout repository
@@ -30,354 +55,138 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y jq unzip curl
 
-      - name: Set version from release or input
-        id: version
+      - name: Setup Environment
         run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            VERSION="${{ github.event.release.tag_name }}"
-            VERSION="${VERSION#v}"  # Remove 'v' prefix if present
-            echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-            
-            # Extract mrpack URL from release body
-            # Expects format: mrpack_url: https://cdn.modrinth.com/...
-            MRPACK_URL=$(echo "${{ github.event.release.body }}" | grep -oP 'mrpack_url:\s*\K\S+' || echo "")
-            echo "MRPACK_URL=$MRPACK_URL" >> $GITHUB_OUTPUT
-          else
-            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-            echo "MRPACK_URL=${{ github.event.inputs.mrpack_url }}" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Validate mrpack URL
-        run: |
-          MRPACK_URL="${{ steps.version.outputs.MRPACK_URL }}"
-          
-          if [ -z "$MRPACK_URL" ]; then
-            echo "::error::No mrpack URL provided!"
-            echo ""
-            echo "When creating a release, include in the description:"
-            echo "  mrpack_url: https://cdn.modrinth.com/data/XXXXX/versions/XXXXX/OKICRAFT-X.X.X.mrpack"
-            echo ""
-            echo "Or use manual workflow dispatch with the URL."
-            exit 1
-          fi
-          
-          echo "✓ mrpack URL: $MRPACK_URL"
+          echo "VERSION=${{ needs.fetch-version-info.outputs.version }}" >> $GITHUB_ENV
+          echo "MRPACK_URL=${{ needs.fetch-version-info.outputs.mrpack_url }}" >> $GITHUB_ENV
 
       - name: Download and extract mrpack
         run: |
-          MRPACK_URL="${{ steps.version.outputs.MRPACK_URL }}"
-          
-          echo "Downloading mrpack..."
+          echo "Downloading mrpack from $MRPACK_URL..."
           curl -L -o "client.mrpack" "$MRPACK_URL"
           
-          echo "Extracting mrpack..."
           mkdir -p mrpack-contents
           unzip -o client.mrpack -d mrpack-contents
-          
-          echo "Contents:"
-          ls -la mrpack-contents/
 
       - name: Setup output directories
         run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
           OUTPUT_DIR="${PACK_NAME}-Server-${VERSION}"
-          
           mkdir -p "${OUTPUT_DIR}/mods"
           mkdir -p "${OUTPUT_DIR}/config"
           mkdir -p "${OUTPUT_DIR}/defaultconfigs"
-          
           echo "OUTPUT_DIR=${OUTPUT_DIR}" >> $GITHUB_ENV
 
-      - name: Download server mods from Modrinth index
+      - name: Download server mods
         run: |
           # Build client-only patterns regex
           CLIENT_ONLY=$(grep -v '^#' scripts/client-only-mods.txt | grep -v '^$' | sed 's/\*/.*/g' | tr '\n' '|' | sed 's/|$//')
-          echo "Client-only pattern: $CLIENT_ONLY"
           
           DOWNLOADED=0
           SKIPPED=0
-          FAILED=0
           
           if [ -f "mrpack-contents/modrinth.index.json" ]; then
-            echo "Processing modrinth.index.json..."
-            
-            # Process each mod file
             jq -r '.files[] | select(.path | startswith("mods/")) | "\(.path)|\(.downloads[0])"' mrpack-contents/modrinth.index.json > mod_list.txt
             
             while IFS='|' read -r path url; do
               filename=$(basename "$path")
-              
-              # Check if client-only
               if echo "$filename" | grep -qiE "$CLIENT_ONLY"; then
-                echo "⏭ SKIP: $filename (client-only)"
+                echo "⏭ SKIP: $filename"
                 ((SKIPPED++))
               else
                 echo "⬇ Downloading: $filename"
-                if curl -sL -o "${OUTPUT_DIR}/mods/${filename}" "$url"; then
-                  ((DOWNLOADED++))
-                else
-                  echo "  ✗ Failed!"
-                  ((FAILED++))
-                fi
+                curl -sL -o "${OUTPUT_DIR}/mods/${filename}" "$url" || echo "Failed: $filename"
+                ((DOWNLOADED++))
               fi
             done < mod_list.txt
           fi
           
-          # Copy embedded override mods
+          # Copy overrides
           if [ -d "mrpack-contents/overrides/mods" ]; then
-            echo ""
-            echo "Processing override mods..."
             for mod in mrpack-contents/overrides/mods/*.jar; do
               [ -f "$mod" ] || continue
               filename=$(basename "$mod")
-              
               if echo "$filename" | grep -qiE "$CLIENT_ONLY"; then
-                echo "⏭ SKIP: $filename (client-only override)"
+                echo "⏭ SKIP override: $filename"
                 ((SKIPPED++))
               else
-                echo "📦 Copying: $filename"
                 cp "$mod" "${OUTPUT_DIR}/mods/"
                 ((DOWNLOADED++))
               fi
             done
           fi
           
-          echo ""
-          echo "================================"
-          echo "Downloaded: $DOWNLOADED mods"
-          echo "Skipped: $SKIPPED (client-only)"
-          echo "Failed: $FAILED"
-          echo "================================"
-          
           echo "DOWNLOADED=$DOWNLOADED" >> $GITHUB_ENV
           echo "SKIPPED=$SKIPPED" >> $GITHUB_ENV
 
       - name: Copy configs
         run: |
-          # Copy configs from repo (your curated configs)
-          echo "Copying configs from repository..."
-          rsync -av \
-            --exclude='fancymenu*' \
-            --exclude='drippyloadingscreen*' \
-            --exclude='xaerominimap*' \
-            --exclude='xaeroworldmap*' \
-            --exclude='oculus*' \
-            --exclude='journeymap*' \
-            config/ "${OUTPUT_DIR}/config/"
+          # Copy repo configs first
+          rsync -av --exclude='fancymenu*' --exclude='drippyloadingscreen*' --exclude='xaero*' --exclude='journeymap*' --exclude='oculus*' config/ "${OUTPUT_DIR}/config/"
           
           # Copy defaultconfigs
-          if [ -d "defaultconfigs" ]; then
-            cp -r defaultconfigs/* "${OUTPUT_DIR}/defaultconfigs/"
-          fi
+          [ -d "defaultconfigs" ] && cp -r defaultconfigs/* "${OUTPUT_DIR}/defaultconfigs/"
           
-          # Merge any config overrides from mrpack
+          # Merge mrpack config overrides (priority)
           if [ -d "mrpack-contents/overrides/config" ]; then
-            echo "Merging mrpack config overrides..."
-            rsync -av \
-              --exclude='fancymenu*' \
-              --exclude='drippyloadingscreen*' \
-              --exclude='xaerominimap*' \
-              --exclude='xaeroworldmap*' \
-              --exclude='oculus*' \
-              --exclude='journeymap*' \
-              mrpack-contents/overrides/config/ "${OUTPUT_DIR}/config/"
+            rsync -av --exclude='fancymenu*' --exclude='drippyloadingscreen*' --exclude='xaero*' --exclude='journeymap*' --exclude='oculus*' mrpack-contents/overrides/config/ "${OUTPUT_DIR}/config/"
           fi
 
       - name: Install Forge server
         run: |
           cd "${OUTPUT_DIR}"
-          
           FORGE_INSTALLER="forge-${MINECRAFT_VERSION}-${FORGE_VERSION}-installer.jar"
-          FORGE_URL="https://maven.minecraftforge.net/net/minecraftforge/forge/${MINECRAFT_VERSION}-${FORGE_VERSION}/${FORGE_INSTALLER}"
-          
-          echo "Downloading Forge ${FORGE_VERSION}..."
-          curl -LO "$FORGE_URL"
-          
-          echo "Installing Forge server (this may take a minute)..."
+          curl -LO "https://maven.minecraftforge.net/net/minecraftforge/forge/${MINECRAFT_VERSION}-${FORGE_VERSION}/${FORGE_INSTALLER}"
           java -jar "${FORGE_INSTALLER}" --installServer
-          
-          # Cleanup
           rm -f "${FORGE_INSTALLER}" installer.log *.log
-          
           cd ..
 
-      - name: Create server scripts
+      - name: Create start scripts
         run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
-          
-          # Linux start script
+          # Linux
           cat > "${OUTPUT_DIR}/start.sh" << 'EOF'
 #!/bin/bash
-# OKICRAFT Server - Start Script
-# Optimized with Aikar's flags
-
+# OKICRAFT Server Start Script
 MIN_RAM="${MIN_RAM:-4G}"
 MAX_RAM="${MAX_RAM:-8G}"
-
-echo "Starting OKICRAFT Server..."
-echo "Memory: ${MIN_RAM} - ${MAX_RAM}"
-
-java -Xms${MIN_RAM} -Xmx${MAX_RAM} \
-    -XX:+UseG1GC \
-    -XX:+ParallelRefProcEnabled \
-    -XX:MaxGCPauseMillis=200 \
-    -XX:+UnlockExperimentalVMOptions \
-    -XX:+DisableExplicitGC \
-    -XX:+AlwaysPreTouch \
-    -XX:G1NewSizePercent=30 \
-    -XX:G1MaxNewSizePercent=40 \
-    -XX:G1HeapRegionSize=8M \
-    -XX:G1ReservePercent=20 \
-    -XX:G1HeapWastePercent=5 \
-    -XX:G1MixedGCCountTarget=4 \
-    -XX:InitiatingHeapOccupancyPercent=15 \
-    -XX:G1MixedGCLiveThresholdPercent=90 \
-    -XX:G1RSetUpdatingPauseTimePercent=5 \
-    -XX:SurvivorRatio=32 \
-    -XX:+PerfDisableSharedMem \
-    -XX:MaxTenuringThreshold=1 \
-    -Dusing.aikars.flags=https://mcflags.emc.gs \
-    @user_jvm_args.txt \
-    @libraries/net/minecraftforge/forge/*/unix_args.txt \
-    nogui "$@"
+java -Xms${MIN_RAM} -Xmx${MAX_RAM} -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1 -Dusing.aikars.flags=https://mcflags.emc.gs @user_jvm_args.txt @libraries/net/minecraftforge/forge/*/unix_args.txt nogui "$@"
 EOF
           chmod +x "${OUTPUT_DIR}/start.sh"
           
-          # Windows start script
+          # Windows
           cat > "${OUTPUT_DIR}/start.bat" << 'EOF'
 @echo off
 title OKICRAFT Server
-setlocal
-
 set MIN_RAM=4G
 set MAX_RAM=8G
-
-echo Starting OKICRAFT Server...
-echo Memory: %MIN_RAM% - %MAX_RAM%
-
-java -Xms%MIN_RAM% -Xmx%MAX_RAM% ^
-    -XX:+UseG1GC ^
-    -XX:+ParallelRefProcEnabled ^
-    -XX:MaxGCPauseMillis=200 ^
-    -XX:+UnlockExperimentalVMOptions ^
-    -XX:+DisableExplicitGC ^
-    -XX:+AlwaysPreTouch ^
-    -XX:G1NewSizePercent=30 ^
-    -XX:G1MaxNewSizePercent=40 ^
-    -XX:G1HeapRegionSize=8M ^
-    -XX:G1ReservePercent=20 ^
-    -XX:G1HeapWastePercent=5 ^
-    -XX:G1MixedGCCountTarget=4 ^
-    -XX:InitiatingHeapOccupancyPercent=15 ^
-    -XX:G1MixedGCLiveThresholdPercent=90 ^
-    -XX:G1RSetUpdatingPauseTimePercent=5 ^
-    -XX:SurvivorRatio=32 ^
-    -XX:+PerfDisableSharedMem ^
-    -XX:MaxTenuringThreshold=1 ^
-    -Dusing.aikars.flags=https://mcflags.emc.gs ^
-    @user_jvm_args.txt ^
-    @libraries/net/minecraftforge/forge/*/win_args.txt ^
-    nogui %*
-
+java -Xms%MIN_RAM% -Xmx%MAX_RAM% -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1 -Dusing.aikars.flags=https://mcflags.emc.gs @user_jvm_args.txt @libraries/net/minecraftforge/forge/*/win_args.txt nogui %*
 pause
 EOF
           
-          # User JVM args (empty by default, user can customize)
           echo "# Add custom JVM arguments here" > "${OUTPUT_DIR}/user_jvm_args.txt"
-          
-          # EULA
-          cat > "${OUTPUT_DIR}/eula.txt" << 'EOF'
-# By changing the setting below to TRUE you agree to the Minecraft EULA
-# https://aka.ms/MinecraftEULA
-eula=false
-EOF
-          
-          # README
-          cat > "${OUTPUT_DIR}/README.md" << EOF
-# OKICRAFT Server v${VERSION}
+          echo "eula=false" > "${OUTPUT_DIR}/eula.txt"
 
-## Quick Start
-
-1. **Accept the EULA**
-   \`\`\`
-   Edit eula.txt: change eula=false to eula=true
-   \`\`\`
-
-2. **Start the server**
-   - Linux/Mac: \`./start.sh\`
-   - Windows: Double-click \`start.bat\`
-
-## Configuration
-
-### Memory
-Edit the start script or set environment variables:
-\`\`\`bash
-MIN_RAM=6G MAX_RAM=10G ./start.sh
-\`\`\`
-
-### Custom JVM Args
-Add to \`user_jvm_args.txt\`
-
-## Ports to Open
-
-| Port | Protocol | Service |
-|------|----------|---------|
-| 25565 | TCP/UDP | Minecraft |
-| 24454 | UDP | Voice Chat |
-
-## Server Info
-
-- Minecraft: ${MINECRAFT_VERSION}
-- Forge: ${FORGE_VERSION}
-- Mods: ${DOWNLOADED} (server-side)
-- Client-only excluded: ${SKIPPED}
-
-## Links
-
-- [Client Download (Modrinth)](https://modrinth.com/modpack/okicraft)
-- [GitHub Repository](https://github.com/${{ github.repository }})
-EOF
-
-      - name: Create archive
+      - name: Create Archive
         run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
           ARCHIVE="${PACK_NAME}-Server-${VERSION}.zip"
-          
-          echo "Creating ${ARCHIVE}..."
           zip -r "$ARCHIVE" "${OUTPUT_DIR}"
-          
-          SIZE=$(du -h "$ARCHIVE" | cut -f1)
-          echo "Archive size: $SIZE"
-          
           echo "ARCHIVE=$ARCHIVE" >> $GITHUB_ENV
-          echo "SIZE=$SIZE" >> $GITHUB_ENV
 
-      - name: Upload to GitHub Release
-        if: github.event_name == 'release'
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: v${{ env.VERSION }}
+          name: OKICRAFT v${{ env.VERSION }}
           files: ${{ env.ARCHIVE }}
-          append_body: true
           body: |
-
-            ---
-            ## 🖥️ Server Pack
-
-            | | |
-            |-|-|
-            | **Mods** | ${{ env.DOWNLOADED }} server-side |
-            | **Excluded** | ${{ env.SKIPPED }} client-only |
-            | **Size** | ${{ env.SIZE }} |
-            | **Forge** | ${{ env.FORGE_VERSION }} |
-
-            Download **${{ env.ARCHIVE }}** from assets above.
+            ## 🚀 Auto-Generated Release
+            
+            Synced from [Modrinth](https://modrinth.com/modpack/${{ env.MODRINTH_PROJECT_SLUG }}/version/${{ env.VERSION }}).
+            
+            ### 🖥️ Server Pack
+            - **Mods:** ${{ env.DOWNLOADED }}
+            - **Excluded:** ${{ env.SKIPPED }} (client-only)
+            - **Forge:** ${{ env.FORGE_VERSION }}
+            
+            Download `OKICRAFT-Server-${{ env.VERSION }}.zip` below.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload artifact (manual runs)
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.PACK_NAME }}-Server-${{ steps.version.outputs.VERSION }}
-          path: ${{ env.ARCHIVE }}
-          retention-days: 30
