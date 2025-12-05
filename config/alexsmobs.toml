@@ -13,15 +13,15 @@
 	#Range: > 0
 	bananaChance = 200
 	#Whether spiders should target fly mobs.
-	spidersAttackFlies = true
+	spidersAttackFlies = false
 	#Whether wolves should target moose mobs.
-	wolvesAttackMoose = true
+	wolvesAttackMoose = false
 	#Whether polar bears should target seal mobs.
-	polarBearsAttackSeals = true
+	polarBearsAttackSeals = false
 	#Whether cats, ocelots and foxes should target jerboa mobs.
-	catsAndFoxesAttackJerboas = true
+	catsAndFoxesAttackJerboas = false
 	#Whether dolphins should target flying fish mobs.
-	dolphinsAttackFlyingFish = true
+	dolphinsAttackFlyingFish = false
 	#Whether lava can be bottled with a right click of a glass bottle.
 	lavaBottleEnabled = true
 	#Whether bone serpents are neutral or hostile.
