@@ -7,7 +7,7 @@ config {
   show_game_logo = false
   show_splash_text = false
   show_realms_notification = false
-  show_multiplayer_related_warnings = true
+  show_multiplayer_related_warnings = false
   play_menu_music = true
   use_classic_menu_background = false
   preload_animated_images = true

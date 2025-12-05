@@ -1,6 +1,6 @@
 
 [general]
-	tooltip_hints = true
+	tooltip_hints = false
 	custom_configured_screen = true
 
 [sign]
