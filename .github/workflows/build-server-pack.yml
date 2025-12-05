@@ -1,4 +1,4 @@
-name: Manual Server Pack Build
+name: Server Pack Build
 
 on:
   workflow_dispatch:     # Manual trigger
@@ -6,6 +6,8 @@ on:
       force_version:
         description: 'Force build specific version (optional)'
         required: false
+  schedule:
+    - cron: '0 4 * * *'   # Daily at 4:00 AM UTC
 
 env:
   MODRINTH_PROJECT_SLUG: "okicraft"
@@ -14,37 +16,10 @@ env:
   PACK_NAME: "OKICRAFT"
 
 jobs:
-  fetch-version-info:
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.get_info.outputs.version }}
-      mrpack_url: ${{ steps.get_info.outputs.mrpack_url }}
-    steps:
-      - name: Get Modrinth Info
-        id: get_info
-        run: |
-          # 1. Get latest version from Modrinth API
-          echo "Fetching latest version from Modrinth..."
-          RESPONSE=$(curl -s "https://api.modrinth.com/v2/project/${{ env.MODRINTH_PROJECT_SLUG }}/version")
-          
-          # Parse JSON for latest version number and file URL
-          LATEST_VER=$(echo "$RESPONSE" | jq -r '.[0].version_number')
-          MRPACK_URL=$(echo "$RESPONSE" | jq -r '.[0].files[] | select(.primary==true) | .url')
-          
-          if [ "$LATEST_VER" == "null" ] || [ -z "$LATEST_VER" ]; then
-            echo "::error::Could not fetch version from Modrinth."
-            exit 1
-          fi
-          
-          echo "Latest Modrinth Version: $LATEST_VER"
-          echo "version=$LATEST_VER" >> $GITHUB_OUTPUT
-          echo "mrpack_url=$MRPACK_URL" >> $GITHUB_OUTPUT
-
-  build-server-pack:
-    needs: fetch-version-info
+  check-and-build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # Needed to create releases
+      contents: write
     
     steps:
       - name: Checkout repository
@@ -55,12 +30,55 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y jq unzip curl
 
-      - name: Setup Environment
+      - name: Get Modrinth Version
+        id: modrinth
         run: |
-          echo "VERSION=${{ needs.fetch-version-info.outputs.version }}" >> $GITHUB_ENV
-          echo "MRPACK_URL=${{ needs.fetch-version-info.outputs.mrpack_url }}" >> $GITHUB_ENV
+          echo "Fetching latest version from Modrinth..."
+          RESPONSE=$(curl -sf "https://api.modrinth.com/v2/project/${{ env.MODRINTH_PROJECT_SLUG }}/version" || echo "[]")
+          
+          if [ "$RESPONSE" == "[]" ]; then
+            echo "No versions found on Modrinth. Skipping."
+            echo "skip=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          LATEST_VER=$(echo "$RESPONSE" | jq -r '.[0].version_number')
+          MRPACK_URL=$(echo "$RESPONSE" | jq -r '.[0].files[] | select(.primary==true) | .url')
+          
+          if [ "$LATEST_VER" == "null" ] || [ -z "$LATEST_VER" ]; then
+            echo "Could not parse version from Modrinth. Skipping."
+            echo "skip=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          echo "Latest Modrinth Version: $LATEST_VER"
+          echo "version=$LATEST_VER" >> $GITHUB_OUTPUT
+          echo "mrpack_url=$MRPACK_URL" >> $GITHUB_OUTPUT
+          echo "skip=false" >> $GITHUB_OUTPUT
+
+      - name: Check if release exists
+        id: check_release
+        if: steps.modrinth.outputs.skip != 'true'
+        run: |
+          VERSION="${{ steps.modrinth.outputs.version }}"
+          RELEASE=$(curl -sf "https://api.github.com/repos/${{ github.repository }}/releases/tags/v${VERSION}" || echo "")
+          
+          if [ -n "$RELEASE" ] && [ "$RELEASE" != "" ]; then
+            echo "Release v${VERSION} already exists. Skipping."
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "Release v${VERSION} does not exist. Building..."
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Environment
+        if: steps.modrinth.outputs.skip != 'true' && steps.check_release.outputs.exists != 'true'
+        run: |
+          echo "VERSION=${{ steps.modrinth.outputs.version }}" >> $GITHUB_ENV
+          echo "MRPACK_URL=${{ steps.modrinth.outputs.mrpack_url }}" >> $GITHUB_ENV
 
       - name: Download and extract mrpack
+        if: steps.modrinth.outputs.skip != 'true' && steps.check_release.outputs.exists != 'true'
         run: |
           echo "Downloading mrpack from $MRPACK_URL..."
           curl -L -o "client.mrpack" "$MRPACK_URL"
@@ -69,6 +87,7 @@ jobs:
           unzip -o client.mrpack -d mrpack-contents
 
       - name: Setup output directories
+        if: steps.modrinth.outputs.skip != 'true' && steps.check_release.outputs.exists != 'true'
         run: |
           OUTPUT_DIR="${PACK_NAME}-Server-${VERSION}"
           mkdir -p "${OUTPUT_DIR}/mods"
@@ -77,6 +96,7 @@ jobs:
           echo "OUTPUT_DIR=${OUTPUT_DIR}" >> $GITHUB_ENV
 
       - name: Download server mods
+        if: steps.modrinth.outputs.skip != 'true' && steps.check_release.outputs.exists != 'true'
         run: |
           # Build client-only patterns regex
           CLIENT_ONLY=$(grep -v '^#' scripts/client-only-mods.txt | grep -v '^$' | sed 's/\*/.*/g' | tr '\n' '|' | sed 's/|$//')
@@ -119,6 +139,7 @@ jobs:
           echo "SKIPPED=$SKIPPED" >> $GITHUB_ENV
 
       - name: Copy configs
+        if: steps.modrinth.outputs.skip != 'true' && steps.check_release.outputs.exists != 'true'
         run: |
           # Copy repo configs first
           rsync -av --exclude='fancymenu*' --exclude='drippyloadingscreen*' --exclude='xaero*' --exclude='journeymap*' --exclude='oculus*' config/ "${OUTPUT_DIR}/config/"
@@ -132,6 +153,7 @@ jobs:
           fi
 
       - name: Install Forge server
+        if: steps.modrinth.outputs.skip != 'true' && steps.check_release.outputs.exists != 'true'
         run: |
           cd "${OUTPUT_DIR}"
           FORGE_INSTALLER="forge-${MINECRAFT_VERSION}-${FORGE_VERSION}-installer.jar"
@@ -141,6 +163,7 @@ jobs:
           cd ..
 
       - name: Create start scripts
+        if: steps.modrinth.outputs.skip != 'true' && steps.check_release.outputs.exists != 'true'
         run: |
           # Linux
           cat > "${OUTPUT_DIR}/start.sh" << 'EOF'
@@ -166,19 +189,21 @@ EOF
           echo "eula=false" > "${OUTPUT_DIR}/eula.txt"
 
       - name: Create Archive
+        if: steps.modrinth.outputs.skip != 'true' && steps.check_release.outputs.exists != 'true'
         run: |
           ARCHIVE="${PACK_NAME}-Server-${VERSION}.zip"
           zip -r "$ARCHIVE" "${OUTPUT_DIR}"
           echo "ARCHIVE=$ARCHIVE" >> $GITHUB_ENV
 
       - name: Create GitHub Release
+        if: steps.modrinth.outputs.skip != 'true' && steps.check_release.outputs.exists != 'true'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ env.VERSION }}
           name: OKICRAFT v${{ env.VERSION }}
           files: ${{ env.ARCHIVE }}
           body: |
-            ## 🚀 Auto-Generated Release
+            ## 🚀 Auto-Generated Server Pack
             
             Synced from [Modrinth](https://modrinth.com/modpack/${{ env.MODRINTH_PROJECT_SLUG }}/version/${{ env.VERSION }}).
             
