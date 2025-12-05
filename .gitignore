@@ -6,7 +6,7 @@ crash-reports/
 screenshots/
 schematics/
 versions/
-assets/
+/assets/
 libraries/
 runtime/
 webcache2/
