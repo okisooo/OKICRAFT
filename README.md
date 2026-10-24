@@ -37,4 +37,3 @@ the [feature overview](MODPACK_SUMMARY.md) provides more background, but some en
 
 - [okiso.net](https://okiso.net/) — music, commissioned artwork, and official links.
 - [website source](https://github.com/okisooo/site) — the frontend behind the site.
-- [DesktopMateController](https://github.com/okisooo/DesktopMateController) — windows tray controls for `DesktopMate`.
